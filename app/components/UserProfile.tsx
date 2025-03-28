@@ -1,16 +1,43 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { UserMenager } from "@/services/UserMenager";
 
-export default function UserProfile() {
-  const user = UserMenager.getLoggedInUser();
+interface User {
+  id: string;
+  name: string;
+  surname: string;
+  role: string;
+}
+const UserProfile = () => {
+  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
 
-  if (!user) {
-    return <div>No user logged in</div>;
+  useEffect(() => {
+    setIsMounted(true);
+    const user = UserMenager.getLoggedInUser();
+    if (user) setLoggedInUser(user);
+    setLoading(false);
+  }, []);
+  if (!isMounted) {
+    return null;
   }
+
   return (
     <div className="user-profile">
-      <p>
-        {user.name} {user.surname}
-      </p>
+      {loading ? (
+        <p>Loading...</p>
+      ) : loggedInUser ? (
+        <p>
+          Logged in as: {loggedInUser.name} {loggedInUser.surname} (
+          {loggedInUser.role})
+        </p>
+      ) : (
+        <p>No user logged in</p>
+      )}
     </div>
   );
-}
+};
+
+export default UserProfile;

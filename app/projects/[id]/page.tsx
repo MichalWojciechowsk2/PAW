@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation"; // useRouter added
 import { Project } from "../../../types/project";
 import ProjectAPI from "../../../services/ProjectAPI";
 import { Story } from "@/types/story";
@@ -16,17 +16,24 @@ export default function ProjectStoriesPage() {
   const [newStory, setNewStory] = useState({
     name: "",
     description: "",
-    priority: "medium", // default to medium
-    state: "todo", // default to todo
-    owner: "", // Will be set to the logged-in user ID
+    priority: "medium",
+    state: "todo",
+    owner: "",
   });
+
+  // Edit state management
+  const [editMode, setEditMode] = useState(false);
+  const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
+
+  const router = useRouter(); // Initialize useRouter
 
   useEffect(() => {
     if (id) {
+      // Fetch project by ID using ProjectAPI
       const fetchedProject = ProjectAPI.getById(id as string);
       setProject(fetchedProject);
 
-      // Fetch and filter stories for this project
+      // Fetch stories associated with the project using StoriesAPI
       const projectStories = StoriesAPI.getAll().filter(
         (story) => story.projectId === id
       );
@@ -35,12 +42,11 @@ export default function ProjectStoriesPage() {
       setLoading(false);
     }
 
-    // Fetch the logged-in user (mocked user in this case)
     const user = UserMenager.getLoggedInUser();
     if (user) {
       setNewStory((prevStory) => ({
         ...prevStory,
-        owner: user.id, // Set the owner to the logged-in user's ID
+        owner: user.id,
       }));
     }
   }, [id]);
@@ -48,7 +54,6 @@ export default function ProjectStoriesPage() {
   const addStory = () => {
     if (!newStory.name.trim() || !newStory.description.trim()) return;
 
-    // Ensure the user ID is available before creating the story
     if (!newStory.owner) {
       alert("User is not authenticated.");
       return;
@@ -58,19 +63,82 @@ export default function ProjectStoriesPage() {
       newStory.name,
       newStory.description,
       newStory.priority as "low" | "medium" | "high",
-      id as string, // Assign the project ID
+      id as string,
       new Date(),
       newStory.state as "todo" | "doing" | "done",
-      newStory.owner // Assign the current user ID
+      newStory.owner
     );
-    setStories([...stories, story]);
+
+    setStories((prevStories) => [...prevStories, story]);
     setNewStory({
       name: "",
       description: "",
       priority: "medium",
       state: "todo",
-      owner: newStory.owner, // Keep the current user ID
+      owner: newStory.owner,
     });
+  };
+
+  const deleteStory = (storyId: string) => {
+    StoriesAPI.delete(storyId); // Delete story using StoriesAPI
+    setStories((prevStories) =>
+      prevStories.filter((story) => story.id !== storyId)
+    ); // Update local state
+  };
+
+  const editStory = (storyId: string) => {
+    const storyToEdit = stories.find((story) => story.id === storyId);
+    if (storyToEdit) {
+      setNewStory({
+        name: storyToEdit.name,
+        description: storyToEdit.description,
+        priority: storyToEdit.priority,
+        state: storyToEdit.state,
+        owner: storyToEdit.owner,
+      });
+      setEditMode(true);
+      setSelectedStoryId(storyId);
+    }
+  };
+
+  const saveStory = () => {
+    if (!newStory.name.trim() || !newStory.description.trim()) return;
+
+    if (selectedStoryId) {
+      const updatedStory = StoriesAPI.update(
+        selectedStoryId,
+        newStory.name,
+        newStory.description,
+        newStory.priority as "low" | "medium" | "high",
+        id as string,
+        newStory.state as "todo" | "doing" | "done"
+      );
+
+      if (updatedStory) {
+        setStories((prevStories) =>
+          prevStories.map((story) =>
+            story.id === selectedStoryId ? updatedStory : story
+          )
+        );
+        cancelEdit();
+      }
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditMode(false);
+    setSelectedStoryId(null);
+    setNewStory({
+      name: "",
+      description: "",
+      priority: "medium",
+      state: "todo",
+      owner: newStory.owner,
+    });
+  };
+
+  const handleStoryClick = (storyId: string) => {
+    router.push(`/projects/${id}/stories/${storyId}`); // Navigate to the story details page
   };
 
   if (loading) {
@@ -91,7 +159,7 @@ export default function ProjectStoriesPage() {
       {/* Add Story Section */}
       <div className="bg-white p-6 rounded-lg shadow-md mt-6">
         <h2 className="text-xl font-medium text-gray-900 mb-4">
-          Add New Story
+          {editMode ? "Edit Story" : "Add New Story"}
         </h2>
         <div className="space-y-4">
           <input
@@ -139,10 +207,19 @@ export default function ProjectStoriesPage() {
 
           <button
             className="w-full bg-indigo-500 text-white p-3 rounded-lg hover:bg-indigo-600 transition duration-300"
-            onClick={addStory}
+            onClick={editMode ? saveStory : addStory}
           >
-            Add Story
+            {editMode ? "Save Changes" : "Add Story"}
           </button>
+
+          {editMode && (
+            <button
+              className="w-full mt-2 bg-gray-500 text-white p-3 rounded-lg hover:bg-gray-600 transition duration-300"
+              onClick={cancelEdit}
+            >
+              Cancel
+            </button>
+          )}
         </div>
       </div>
 
@@ -153,7 +230,11 @@ export default function ProjectStoriesPage() {
       {stories.length > 0 ? (
         <ul className="space-y-4">
           {stories.map((story) => (
-            <li key={story.id} className="bg-white p-4 rounded-lg shadow-md">
+            <li
+              key={story.id}
+              className="bg-white p-4 rounded-lg shadow-md"
+              onClick={() => handleStoryClick(story.id)} // On click, navigate to story page
+            >
               <strong className="text-lg font-semibold text-gray-800">
                 {story.name}
               </strong>
@@ -162,6 +243,18 @@ export default function ProjectStoriesPage() {
                 Priority: {story.priority.toUpperCase()}
               </p>
               <p className="text-sm text-gray-500 ml-4">State: {story.state}</p>
+              <button
+                className="text-blue-500 hover:text-blue-700"
+                onClick={() => editStory(story.id)} // Edit button
+              >
+                Edit
+              </button>
+              <button
+                className="text-red-500 hover:text-red-700 ml-4"
+                onClick={() => deleteStory(story.id)} // Delete button
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>

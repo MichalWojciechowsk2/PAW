@@ -49,7 +49,6 @@ export default function ProjectsPage() {
   return (
     <div className="container mx-auto p-4 bg-gray-100 min-h-screen">
       <div className="text-gray-900 text-right">
-        Active user:
         <UserProfile />
       </div>
       <h1 className="text-3xl font-semibold text-center text-gray-900 mb-8">

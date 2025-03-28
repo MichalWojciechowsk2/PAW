@@ -1,3 +1,5 @@
+import { User } from "../types/user";
+
 export class UserMenager {
   private static STORAGE_KEY = "user";
 
@@ -22,56 +24,25 @@ export class UserMenager {
     },
   ];
 
-  static getLoggedInUser() {
-    if (typeof window === "undefined") return null;
-
-    const loggedInUser = this.mockUsers.find((user) => user.role === "Admin");
-
-    if (loggedInUser) {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(loggedInUser));
+  static setLoggedInUser(userId: string) {
+    if (typeof window !== "undefined") {
+      const user = this.mockUsers.find((u) => u.id === userId);
+      if (user) localStorage.setItem(this.STORAGE_KEY, JSON.stringify(user));
+      else console.warn("User not found!");
     }
-
-    return loggedInUser || null;
   }
 
-  static setLoggedInUser(user: {
-    id: string;
-    name: string;
-    surname: string;
-    role: string;
-  }) {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(user));
-    }
+  static getLoggedInUser(): User | null {
+    if (typeof window === "undefined") return null;
+    const userData = localStorage.getItem(this.STORAGE_KEY);
+    return userData ? JSON.parse(userData) : null;
   }
 
   static getAllUsers() {
-    return this.mockUsers;
+    return JSON.stringify(this.mockUsers);
   }
 }
+UserMenager.setLoggedInUser("11052001");
 
-const adminUser = {
-  id: "11052001",
-  name: "Michał",
-  surname: "Wojciechowski",
-  role: "Admin",
-};
-
-const developerUser = {
-  id: "11052002",
-  name: "Jan",
-  surname: "Kowalski",
-  role: "Developer",
-};
-
-const devopsUser = {
-  id: "11052003",
-  name: "Anna",
-  surname: "Nowak",
-  role: "DevOps",
-};
-
-UserMenager.setLoggedInUser(adminUser);
-
-const users = UserMenager.getAllUsers();
-console.log(users);
+console.log(`List of all created users: ${UserMenager.getAllUsers()}`);
+console.log(`Current logged in user: ${UserMenager.getLoggedInUser()}`);
